@@ -4,6 +4,7 @@
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![HTTPX](https://img.shields.io/badge/httpx-async-blue)](https://www.python-httpx.org/)
 [![SQLite](https://img.shields.io/badge/sqlite-3-003b57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![Gemini 3.1](https://img.shields.io/badge/Developed%20with-Gemini%203.1-8E75B2?logo=google-gemini&logoColor=white)](https://deepmind.google/technologies/gemini/)
 
 A high-performance, asynchronous Python tool for exporting raw activity data from multiple NinjaOne accounts into a local SQLite database. This serves as a robust local mirror for auditing, analysis, or as a source for an OCSF translation layer.
 
