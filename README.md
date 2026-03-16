@@ -51,6 +51,7 @@ uv run main.py --show-log
 
 - `--max-duration [SECONDS]`: Bounds execution time per account. Useful for periodic jobs or limited sync windows. The script checkpoints progress automatically.
 - `--show-log`: Switches output from progress bars to standard diagnostic logs.
+- `--page-size [NUMBER]`: Overrides the default number of items fetched per API request (default/max is 1000).
 
 ## Design Philosophy
 

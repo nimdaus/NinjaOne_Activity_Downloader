@@ -141,10 +141,12 @@ async def main():
     parser = argparse.ArgumentParser(description="NinjaOne Activity Downloader")
     parser.add_argument("--show-log", action="store_true", help="Show detailed execution logs instead of progress bars")
     parser.add_argument("--max-duration", type=int, default=0, help="Maximum execution time in seconds per account. 0 means unlimited.")
+    parser.add_argument("--page-size", type=int, default=1000, help="Number of records to fetch per API page (max 1000).")
     args = parser.parse_args()
 
     try:
         config = AppConfig()
+        config.page_size = args.page_size
     except Exception as e:
         logger.error("Configuration failed: %s", e)
         return
