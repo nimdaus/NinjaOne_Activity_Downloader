@@ -22,9 +22,8 @@ async def with_retry(
     max_backoff: int
 ) -> httpx.Response:
     """
-    Executes an async HTTP request function with retry logic.
-    Retries on connection errors, timeouts, and specific HTTP status codes (429, 500, 502, 503, 504).
-    Uses exponential backoff with jitter.
+    Wraps an async HTTP request in a retry loop using an exponential backoff strategy with jitter.
+    Automatically handles transient network errors and rate limits (HTTP 429 & 500s).
     """
     attempt = 0
     while True:
@@ -49,7 +48,7 @@ async def with_retry(
         except httpx.HTTPStatusError as e:
             if e.response.status_code not in (429, 500, 502, 503, 504):
                 raise
-            # if it was one of the retryable codes, delay is already set
+            # Valid retryable HTTP error, the delay is already set
         except Exception:
             raise
             
@@ -60,7 +59,7 @@ async def with_retry(
                 response.raise_for_status()
             raise Exception("Max retries exceeded and no response available to raise.")
 
-        # Add jitter
+        # Add randomized jitter to prevent "thundering herd" issues
         jitter = random.uniform(0, 0.5 * delay)
         sleep_time = min(delay + jitter, max_backoff)
         

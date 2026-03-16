@@ -47,8 +47,8 @@ async def process_account(
     max_duration_seconds: int = 0
 ):
     """
-    Export process for a single account.
-    Fetches activities and writes them to the database in batches.
+    Orchestrates the export process for a single NinjaOne account.
+    Handles the dual-phase sync logic (forward for new events, backward for history resumption).
     """
     task_id = None
     if progress:
@@ -70,7 +70,7 @@ async def process_account(
             async def combined_activity_generator():
                 if max_id > 0:
                     logger.info("Syncing new records for account %s (newer than %d).", account.name, max_id)
-                    # Pull backwards from present, stop when we hit max_id
+                    # Phase 1: Forward Sync - fetch backwards from present until we hit our exact `max_id` bookmark
                     async for act in ninja_client.fetch_activities(account, start_older_than_id=0, stop_at_id=max_id):
                         yield act
                         
@@ -80,7 +80,7 @@ async def process_account(
                     else:
                         logger.info("Performing full initial historical sync for account %s.", account.name)
                         
-                    # Pull backwards from min_id, don't stop until no more activities
+                    # Phase 2: Historical Resumption - fetch entirely unbounded starting exactly where we last left off
                     async for act in ninja_client.fetch_activities(account, start_older_than_id=min_id, stop_at_id=0):
                         yield act
 
@@ -112,7 +112,7 @@ async def process_account(
                 batch.append(row)
                 
                 if len(batch) >= batch_size:
-                    # Offload the blocking SQLite write to a thread pool so it doesn't freeze the asyncio event loop
+                    # Offload SQLite writes to a background thread to prevent blocking the async API loop
                     inserted = await asyncio.to_thread(database.insert_activities, batch)
                     total_inserted += inserted
                     if progress and task_id is not None:
@@ -120,7 +120,7 @@ async def process_account(
                         progress.update(task_id, advance=1, description=f"[cyan]Syncing {account.name} - {total_fetched} activities fetched, {total_inserted} new inserts")
                         
                     logger.info("Inserted %d new records (%d fetched so far) for account %s", inserted, total_fetched, account.name)
-                    # We must create a new list because passing the reference to the thread and clearing it could cause race conditions
+                    # Recreate the batch list to avoid thread race conditions
                     batch = []
                     
             if batch:

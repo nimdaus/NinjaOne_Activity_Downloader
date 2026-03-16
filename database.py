@@ -11,12 +11,12 @@ class Database:
         self._init_schema()
 
     def _init_schema(self):
-        """Initializes the database schema."""
+        """Creates the necessary SQLite tables and performance indexes."""
         logger.info("Initializing database schema at %s", self.db_path)
         with sqlite3.connect(self.db_path) as conn:
-            # Enable Write-Ahead Logging (WAL) for significantly better concurrent read/write performance
+            # Enable WAL mode so readers aren't blocked by writers
             conn.execute('PRAGMA journal_mode=WAL;')
-            # NORMAL synchronous mode is safe with WAL and much faster than FULL
+            # NORMAL sync is faster and perfectly safe in WAL mode
             conn.execute('PRAGMA synchronous=NORMAL;')
             
             cursor = conn.cursor()
@@ -31,7 +31,7 @@ class Database:
                 activity_timestamp INTEGER,
                 activity_id INTEGER,
                 dedupe_key TEXT NOT NULL,
-                activity_body TEXT NOT NULL
+                activity_body JSON NOT NULL
             );
             ''')
             
@@ -54,8 +54,8 @@ class Database:
 
     def get_last_activity_id(self, client_id: str) -> int:
         """
-        Retrieves the maximum activity_id successfully stored for a given client ID.
-        Returns 0 if no activities have been stored.
+        Finds the newest activity_id we have fully saved for this client.
+        Used as the stopping boundary during forward-syncs.
         """
         stmt = "SELECT MAX(activity_id) FROM raw_activities WHERE client_id = ?"
         with sqlite3.connect(self.db_path) as conn:
@@ -66,8 +66,8 @@ class Database:
 
     def get_lowest_activity_id(self, client_id: str) -> int:
         """
-        Retrieves the minimum activity_id successfully stored for a given client ID.
-        Returns 0 if no activities have been stored.
+        Finds the oldest activity_id we have fully saved for this client.
+        Used as the starting cursor when backfilling history.
         """
         stmt = "SELECT MIN(activity_id) FROM raw_activities WHERE client_id = ?"
         with sqlite3.connect(self.db_path) as conn:
@@ -78,9 +78,8 @@ class Database:
 
     def insert_activities(self, rows: List[ActivityRow]) -> int:
         """
-        Batch inserts activities. Ignores duplicates based on dedupe_key.
-        Also stores activity_id to support subsequent incremental syncs.
-        Returns the number of rows actually inserted.
+        Persists a batch of activities to the database.
+        Returns the number of genuinely new records saved.
         """
         if not rows:
             return 0
@@ -113,7 +112,7 @@ class Database:
         '''
         
         with sqlite3.connect(self.db_path) as conn:
-            # We use an explicit transaction boundary
+            # Wrap inserts in a single transaction for maximum batch performance
             conn.execute("BEGIN TRANSACTION;")
             cursor = conn.cursor()
             cursor.executemany(stmt, data)

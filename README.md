@@ -47,6 +47,38 @@ uv run main.py --max-duration 60
 uv run main.py --show-log
 ```
 
+## Expanding the Project
+
+### Scheduled Ingestion (Cron)
+Because the downloader internally tracks the cursor state for every account and prevents duplicates, it is safe and highly efficient to run it repeatedly.
+For a simple daily or hourly sync on a Linux/macOS server, use cron:
+
+```bash
+# Example: Run the sync every hour at minute 0
+0 * * * * cd /path/to/NinjaOne_Activity_Downloader && /path/to/uv run main.py --max-duration 300
+```
+*Note: Using `--max-duration` in a cron job ensures that if the API is exceptionally slow, the job won't hang and overlap with the next hour's run.*
+
+### Browsing the Data (Datasette + Cloudflare Tunnel)
+You can easily turn the raw SQLite database into a beautiful, searchable, and shareable web interface using Datasette and secure it with Cloudflare.
+
+1. **Install Datasette:**
+   ```bash
+   uv pip install datasette
+   ```
+2. **Launch the Interface:**
+   ```bash
+   uv run datasette activities.sqlite3 -p 8001
+   ```
+   *You can now browse your data locally at `http://localhost:8001`.*
+
+3. **Secure Remote Access (Optional):**
+   To share this securely with your team without exposing ports, use Cloudflare Tunnels:
+   ```bash
+   cloudflared tunnel --url http://localhost:8001
+   ```
+   *You can attach a Cloudflare Access Policy to this tunnel to require Google or Entra SSO before viewing the data.*
+
 ## Configuration Flags
 
 - `--max-duration [SECONDS]`: Bounds execution time per account. Useful for periodic jobs or limited sync windows. The script checkpoints progress automatically.

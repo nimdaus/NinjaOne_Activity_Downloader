@@ -14,13 +14,13 @@ class AuthManager:
 
     async def get_token(self, client: httpx.AsyncClient, account: AccountConfig) -> str:
         """
-        Get a valid access token for the given account.
-        Reads from cache if valid, otherwise authenticates.
+        Retrieves a valid OAuth2 token. 
+        Returns a cached token if available, or fetches a new one if expired.
         """
         token_info = self._tokens.get(account.name)
         now = time.time()
         
-        # Buffer of 60 seconds before actual expiration
+        # Keep a 60-second buffer to prevent using a token that's about to expire
         if token_info and token_info.expires_at > now + 60:
             return token_info.access_token
             
@@ -36,7 +36,7 @@ class AuthManager:
             "scope": "monitoring"
         }
         
-        # Base64 Basic Auth is common for client_credentials oauth
+        # Client credentials grant requires Basic Auth using the ID and Secret
         auth = (account.client_id, account.client_secret)
         
         async def _fetch_token():
